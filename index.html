@@ -1,688 +1,402 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trail Making Test (TMT-A & TMT-B)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            touch-action: manipulation;
-        }
-        /* Disable text selection during interactive test */
-        .no-select {
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-        canvas {
-            touch-action: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trail Making Test (TMT-A & TMT-B)</title>
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --error-color: #ef4444;
+      --success-color: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    header h1 { font-size: 1.5rem; color: var(--primary-color); }
+
+    main {
+      flex: 1; display: flex; justify-content: center; align-items: center; padding: 1rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 550px; width: 100%;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      border: 1px solid var(--border-color);
+    }
+
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .form-group input {
+      width: 100%; padding: 0.75rem;
+      border: 1px solid var(--border-color); border-radius: 6px;
+      font-size: 1rem; outline: none;
+    }
+    .form-group input:focus { border-color: var(--primary-color); }
+
+    .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .btn {
+      flex: 1; padding: 0.85rem; border: none; border-radius: 6px;
+      background: var(--primary-color); color: white;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #64748b; }
+    .btn-secondary:hover { background: #475569; }
+
+    /* Canvas / Screen Test */
+    #test-screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+    .test-header {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; max-width: 900px; margin-bottom: 0.5rem;
+      font-size: 1.1rem; font-weight: 600;
+    }
+    .canvas-container {
+      position: relative; background: white;
+      border: 2px solid var(--border-color); border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    canvas { display: block; touch-action: none; }
+
+    .status-msg { margin-top: 1rem; font-size: 0.95rem; color: var(--text-muted); text-align: center; }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+<body>
 
-    <!-- Header / Navbar -->
-    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex flex-wrap justify-between items-center shadow-lg">
-        <div class="flex items-center space-x-3">
-            <div class="bg-indigo-600 text-white p-2 rounded-lg font-bold text-xl">TMT</div>
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-white">Trail Making Test</h1>
-                <p class="text-xs text-slate-400">Нейропсихологічне тестування (TMT-A & TMT-B)</p>
-            </div>
-        </div>
-        <div id="participant-badge" class="hidden text-sm bg-slate-700 px-3 py-1.5 rounded-full border border-slate-600 text-slate-300">
-            Пацієнт ID: <span id="badge-subject-id" class="font-semibold text-indigo-400">-</span>
-        </div>
-    </header>
+<header>
+  <h1>Trail Making Test (TMT)</h1>
+</header>
 
-    <!-- Main Container -->
-    <main class="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto flex flex-col">
-        
-        <!-- STEP 1: Metadata Form & Mode Selection -->
-        <section id="setup-section" class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl max-w-2xl mx-auto w-full my-auto space-y-6">
-            <div class="border-b border-slate-700 pb-4">
-                <h2 class="text-lg font-semibold text-white">1. Дані пацієнта / учасника</h2>
-                <p class="text-sm text-slate-400">Вкажіть метадані перед початком проходження тесту.</p>
-            </div>
+<main>
+  <!-- Main Form Screen -->
+  <div id="setup-screen" class="card">
+    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Дані пацієнта / досліджуваного</h2>
+    
+    <div class="form-group">
+      <label for="pib">ПІБ пацієнта</label>
+      <input type="text" id="pib" placeholder="Іванов Іван Іванович">
+    </div>
 
-            <form id="metadata-form" class="space-y-4" onsubmit="event.preventDefault();">
-                <div>
-                    <label for="subject-id" class="block text-sm font-medium text-slate-300 mb-1">ID пацієнта / Код / ПІБ <span class="text-rose-500">*</span></label>
-                    <input type="text" id="subject-id" required placeholder="Наприклад: P-1024 або Іванов А." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label for="subject-age" class="block text-sm font-medium text-slate-300 mb-1">Вік (років)</label>
-                        <input type="number" id="subject-age" min="1" max="120" placeholder="65" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
-                    </div>
-                    <div>
-                        <label for="subject-gender" class="block text-sm font-medium text-slate-300 mb-1">Стать</label>
-                        <select id="subject-gender" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition">
-                            <option value="">Не вказано</option>
-                            <option value="Жіноча">Жіноча</option>
-                            <option value="Чоловіча">Чоловіча</option>
-                        </select>
-                    </div>
-                </div>
+    <div class="form-group">
+      <label for="age">Вік (років)</label>
+      <input type="number" id="age" placeholder="45" min="1" max="120">
+    </div>
 
-                <div class="pt-4 border-t border-slate-700">
-                    <h3 class="text-sm font-medium text-slate-300 mb-3">Виберіть частину тесту:</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <button type="button" onclick="prepareTest('A')" class="flex flex-col p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500 rounded-xl transition text-left group">
-                            <span class="text-indigo-400 font-bold text-lg mb-1 group-hover:text-indigo-300">Частина A (TMT-A)</span>
-                            <span class="text-xs text-slate-400">З'єднання чисел у порядку зростання (1 → 2 → 3 ... → 25).</span>
-                        </button>
+    <div class="form-group">
+      <label for="test-date">Дата проходження</label>
+      <input type="date" id="test-date">
+    </div>
 
-                        <button type="button" onclick="prepareTest('B')" class="flex flex-col p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 hover:border-indigo-500 rounded-xl transition text-left group">
-                            <span class="text-emerald-400 font-bold text-lg mb-1 group-hover:text-emerald-300">Частина B (TMT-B)</span>
-                            <span class="text-xs text-slate-400">Переключення: число → літера (1 → А → 2 → Б ... → 13 → Л).</span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-            
-            <div class="pt-2 text-center">
-                <button type="button" onclick="showResultsTable()" class="text-xs text-indigo-400 hover:text-indigo-300 underline">
-                    Переглянути історію збережених результатів
-                </button>
-            </div>
-        </section>
+    <div class="form-group" style="margin-top: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+      <label for="script-url" style="color: var(--primary-color);">Google Apps Script URL (для збереження)</label>
+      <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
 
-        <!-- STEP 2: Instructions Modal/Screen -->
-        <section id="instructions-section" class="hidden bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl max-w-2xl mx-auto w-full my-auto space-y-6">
-            <div class="border-b border-slate-700 pb-4">
-                <h2 id="instructions-title" class="text-xl font-bold text-indigo-400">Інструкція до Частини A</h2>
-                <p class="text-sm text-slate-400 mt-1">Будь ласка, уважно прочитайте інструкцію перед стартом.</p>
-            </div>
+    <div class="btn-group">
+      <button class="btn" onclick="startTest('A')">Старт TMT-A</button>
+      <button class="btn btn-secondary" onclick="startTest('B')">Старт TMT-B</button>
+    </div>
+  </div>
 
-            <div id="instructions-text" class="text-slate-200 text-sm leading-relaxed space-y-3">
-                <!-- Injected via JS -->
-            </div>
+  <!-- Test Canvas Screen -->
+  <div id="test-screen">
+    <div class="test-header">
+      <span id="test-title">Частина A</span>
+      <div>Час: <span id="timer">0.0</span> с | Помилки: <span id="error-count" style="color:var(--error-color);">0</span></div>
+    </div>
+    <div class="canvas-container">
+      <canvas id="tmtCanvas"></canvas>
+    </div>
+    <div class="btn-group" style="max-width: 900px; width: 100%; margin-top: 1rem;">
+      <button class="btn btn-secondary" onclick="exitTest()">Скасувати / В меню</button>
+    </div>
+  </div>
+</main>
 
-            <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-amber-300 text-xs">
-                ⚠️ **Правило:** Якщо ви припуститеся помилки (клікнете не на те коло), воно коротко підсвітиться червоним. Продовжуйте шукати правильний наступний елемент.
-            </div>
+<script>
+  // Вставте вау Web App URL сюди за замовчуванням (або вводьте у формі)
+  let GOOGLE_SCRIPT_URL = "";
 
-            <div class="flex space-x-3 pt-4">
-                <button type="button" onclick="backToSetup()" class="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition">Назад</button>
-                <button type="button" onclick="startActiveTest()" class="flex-1 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold text-white shadow-lg transition">Розпочати тест</button>
-            </div>
-        </section>
+  // Встановлюємо поточну дату
+  document.getElementById('test-date').valueAsDate = new Date();
 
-        <!-- STEP 3: Active Test Area (Canvas) -->
-        <section id="test-section" class="hidden flex-1 flex flex-col space-y-3">
-            <!-- Top Status Bar -->
-            <div class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex flex-wrap justify-between items-center gap-2 shadow">
-                <div class="flex items-center space-x-4">
-                    <span id="test-type-tag" class="px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-400 font-bold text-xs border border-indigo-500/30">TMT-A</span>
-                    <div class="text-xs text-slate-300">
-                        Очікується: <span id="next-target-display" class="font-bold text-white text-base px-2 py-0.5 bg-slate-700 rounded ml-1">1</span>
-                    </div>
-                </div>
-                
-                <div class="flex items-center space-x-6 text-sm">
-                    <div>Час: <span id="live-timer" class="font-mono font-bold text-indigo-400">0.0</span> с</div>
-                    <div>Помилки: <span id="live-errors" class="font-bold text-rose-400">0</span></div>
-                    <button type="button" onclick="abortTest()" class="px-3 py-1 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 text-xs border border-rose-500/30 rounded transition">Перервати</button>
-                </div>
-            </div>
+  // Завантажуємо збережене посилання з LocalStorage, якщо воно є
+  if(localStorage.getItem('tmt_script_url')) {
+    document.getElementById('script-url').value = localStorage.getItem('tmt_script_url');
+  }
 
-            <!-- Interactive Canvas Area -->
-            <div id="canvas-container" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl relative overflow-hidden shadow-inner flex items-center justify-center min-h-[500px]">
-                <canvas id="tmt-canvas" class="w-full h-full block cursor-pointer no-select"></canvas>
-            </div>
-        </section>
+  let currentPart = 'A';
+  let points = [];
+  let currentTargetIndex = 0;
+  let startTime = null;
+  let timerInterval = null;
+  let errors = 0;
+  let completedPath = [];
 
-        <!-- STEP 4: Results Screen -->
-        <section id="results-section" class="hidden bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl max-w-3xl mx-auto w-full my-auto space-y-6">
-            <div class="border-b border-slate-700 pb-4 text-center">
-                <div class="inline-flex p-3 bg-emerald-500/20 text-emerald-400 rounded-full mb-3">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                </div>
-                <h2 class="text-2xl font-bold text-white">Тест успішно завершено!</h2>
-                <p class="text-xs text-slate-400 mt-1">Результати зафіксовано в системі.</p>
-            </div>
+  let results = {
+    pib: '', age: '', date: '',
+    timeA: null, errorsA: null,
+    timeB: null, errorsB: null
+  };
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
-                    <span class="text-xs text-slate-400 block mb-1">Час проходження</span>
-                    <span id="res-time" class="text-2xl font-extrabold text-indigo-400">0.0</span>
-                    <span class="text-xs text-slate-400">сек</span>
-                </div>
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
-                    <span class="text-xs text-slate-400 block mb-1">Кількість помилок</span>
-                    <span id="res-errors" class="text-2xl font-extrabold text-rose-400">0</span>
-                </div>
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
-                    <span class="text-xs text-slate-400 block mb-1">Різниця (T<sub>B</sub> - T<sub>A</sub>)</span>
-                    <span id="res-diff" class="text-xl font-bold text-slate-200">N/A</span>
-                </div>
-                <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center">
-                    <span class="text-xs text-slate-400 block mb-1">Індекс (T<sub>B</sub> / T<sub>A</sub>)</span>
-                    <span id="res-ratio" class="text-xl font-bold text-slate-200">N/A</span>
-                </div>
-            </div>
+  const canvas = document.getElementById('tmtCanvas');
+  const ctx = canvas.getContext('2d');
 
-            <!-- Action Buttons -->
-            <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-700">
-                <button type="button" onclick="exportSingleCSV()" class="flex-1 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-sm font-bold text-white flex items-center justify-center space-x-2 shadow transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    <span>Завантажити Excel (CSV)</span>
-                </button>
-                <button type="button" onclick="backToSetup()" class="px-5 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium text-slate-200 transition">
-                    До головного меню
-                </button>
-            </div>
-        </section>
+  const partASequence = Array.from({length: 25}, (_, i) => (i + 1).toString());
+  const partBSequence = [
+    '1','А','2','Б','3','В','4','Г','5','Д','6','Е','7','Є',
+    '8','Ж','9','З','10','И','11','І','12','Ї','13'
+  ];
 
-        <!-- STEP 5: Saved History Table Modal/View -->
-        <section id="history-section" class="hidden bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl max-w-4xl mx-auto w-full space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-                <h2 class="text-lg font-semibold text-white">Історія результатів (LocalStorage)</h2>
-                <div class="flex space-x-2">
-                    <button type="button" onclick="exportAllCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition">Експортувати все в Excel</button>
-                    <button type="button" onclick="clearHistory()" class="px-3 py-1.5 bg-rose-600/30 text-rose-300 hover:bg-rose-600/50 rounded text-xs font-medium transition">Очистити історію</button>
-                    <button type="button" onclick="backToSetup()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-xs font-medium transition">Закрити</button>
-                </div>
-            </div>
+  function startTest(part) {
+    const pib = document.getElementById('pib').value.trim();
+    const age = document.getElementById('age').value;
+    const date = document.getElementById('test-date').value;
+    const url = document.getElementById('script-url').value.trim();
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-slate-300">
-                    <thead class="bg-slate-900 text-slate-400 uppercase font-medium">
-                        <tr>
-                            <th class="p-3">Дата/Час</th>
-                            <th class="p-3">ID Пацієнта</th>
-                            <th class="p-3">Тест</th>
-                            <th class="p-3">Час (с)</th>
-                            <th class="p-3">Помилки</th>
-                            <th class="p-3">Примітка</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-table-body" class="divide-y divide-slate-700">
-                        <!-- Injected via JS -->
-                    </tbody>
-                </table>
-            </div>
-        </section>
+    if(!pib || !age) {
+      alert("Будь ласка, заповніть ПІБ та вік.");
+      return;
+    }
 
-    </main>
+    if(url) {
+      GOOGLE_SCRIPT_URL = url;
+      localStorage.setItem('tmt_script_url', url);
+    }
 
-    <!-- Script Logic -->
-    <script>
-        // State Management
-        let appState = {
-            subjectId: '',
-            age: '',
-            gender: '',
-            testType: 'A', // 'A' or 'B'
-            startTime: 0,
-            endTime: 0,
-            timerInterval: null,
-            errorsCount: 0,
-            currentIndex: 0,
-            sequence: [],
-            nodes: [],
-            userLog: [],
-            lastCompletedResult: null
-        };
+    results.pib = pib;
+    results.age = age;
+    results.date = date;
 
-        // Ukrainian Alphabet for TMT-B (13 elements)
-        const UKR_LETTERS = ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Є', 'Ж', 'З', 'И', 'І', 'Ї', 'Й'];
+    currentPart = part;
+    document.getElementById('test-title').innerText = `Частина ${part} (${part === 'A' ? 'Числа 1-25' : 'Числа та Літери 1-А-2-Б...'})`;
+    
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('test-screen').style.display = 'flex';
 
-        // DOM Elements
-        const setupSec = document.getElementById('setup-section');
-        const instructionsSec = document.getElementById('instructions-section');
-        const testSec = document.getElementById('test-section');
-        const resultsSec = document.getElementById('results-section');
-        const historySec = document.getElementById('history-section');
-        const canvas = document.getElementById('tmt-canvas');
-        const ctx = canvas.getContext('2d');
+    initCanvas();
+    generatePoints();
+    resetState();
+  }
 
-        // Prepare Test Setup
-        function prepareTest(type) {
-            const subjectIdInput = document.getElementById('subject-id').value.trim();
-            if (!subjectIdInput) {
-                alert('Будь ласка, вкажіть ID або ПІБ пацієнта.');
-                document.getElementById('subject-id').focus();
-                return;
-            }
+  function initCanvas() {
+    const maxW = Math.min(window.innerWidth - 32, 900);
+    const maxH = Math.min(window.innerHeight - 180, 650);
+    canvas.width = maxW;
+    canvas.height = maxH;
+  }
 
-            appState.subjectId = subjectIdInput;
-            appState.age = document.getElementById('subject-age').value.trim();
-            appState.gender = document.getElementById('subject-gender').value;
-            appState.testType = type;
+  function generatePoints() {
+    points = [];
+    const sequence = currentPart === 'A' ? partASequence : partBSequence;
+    const radius = 22;
+    const margin = 35;
+    const minDistance = radius * 2 + margin;
 
-            document.getElementById('badge-subject-id').textContent = appState.subjectId;
-            document.getElementById('participant-badge').classList.remove('hidden');
+    for (let i = 0; i < sequence.length; i++) {
+      let x, y, overlap;
+      let attempts = 0;
+      do {
+        overlap = false;
+        x = radius + margin + Math.random() * (canvas.width - 2 * (radius + margin));
+        y = radius + margin + Math.random() * (canvas.height - 2 * (radius + margin));
 
-            // Render Instructions
-            const titleEl = document.getElementById('instructions-title');
-            const textEl = document.getElementById('instructions-text');
-
-            if (type === 'A') {
-                titleEl.textContent = "Інструкція: Частина A (TMT-A)";
-                textEl.innerHTML = `
-                    <p>На екрані з'являться кола з числами від <b>1 до 25</b>.</p>
-                    <p>Ваше завдання — якомога швидше натискати (або торкатися) на кола по черзі у порядку зростання:</p>
-                    <p class="font-mono bg-slate-900 p-2 rounded text-indigo-300 text-center font-bold">1 → 2 → 3 → 4 → ... → 25</p>
-                    <p>Таймер запуститься одразу після того, як ви натиснете кнопку нижче.</p>
-                `;
-            } else {
-                titleEl.textContent = "Інструкція: Частина B (TMT-B)";
-                textEl.innerHTML = `
-                    <p>На екрані з'являться кола з числами та українськими літерами.</p>
-                    <p>Ваше завдання — почергово чергувати числа та літери у алфавітному порядку:</p>
-                    <p class="font-mono bg-slate-900 p-2 rounded text-emerald-300 text-center font-bold">1 → А → 2 → Б → 3 → В → 4 → Г ...</p>
-                    <p>Намагайтеся проходити тест максимально швидко та без помилок.</p>
-                `;
-            }
-
-            setupSec.classList.add('hidden');
-            instructionsSec.classList.remove('hidden');
+        for (let p of points) {
+          const dist = Math.hypot(p.x - x, p.y - y);
+          if (dist < minDistance) {
+            overlap = true;
+            break;
+          }
         }
+        attempts++;
+      } while (overlap && attempts < 1000);
 
-        function backToSetup() {
-            instructionsSec.classList.add('hidden');
-            resultsSec.classList.add('hidden');
-            historySec.classList.add('hidden');
-            setupSec.classList.remove('hidden');
-        }
+      points.push({ label: sequence[i], x, y, radius });
+    }
+  }
 
-        // Generate Target Sequence
-        function generateSequence(type) {
-            let seq = [];
-            if (type === 'A') {
-                for (let i = 1; i <= 25; i++) {
-                    seq.push(i.toString());
-                }
-            } else {
-                // TMT-B: 1, A, 2, B ... 13, Y
-                for (let i = 1; i <= 13; i++) {
-                    seq.push(i.toString());
-                    if (UKR_LETTERS[i - 1]) {
-                        seq.push(UKR_LETTERS[i - 1]);
-                    }
-                }
-            }
-            return seq;
-        }
+  function resetState() {
+    currentTargetIndex = 0;
+    errors = 0;
+    completedPath = [];
+    startTime = null;
+    clearInterval(timerInterval);
+    document.getElementById('timer').innerText = '0.0';
+    document.getElementById('error-count').innerText = '0';
+    draw();
+  }
 
-        // Start Test Execution
-        function startActiveTest() {
-            instructionsSec.classList.add('hidden');
-            testSec.classList.remove('hidden');
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            appState.sequence = generateSequence(appState.testType);
-            appState.currentIndex = 0;
-            appState.errorsCount = 0;
-            appState.userLog = [];
+    // Малювання ліній з'єднання
+    if (completedPath.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 3;
+      ctx.moveTo(completedPath[0].x, completedPath[0].y);
+      for (let i = 1; i < completedPath.length; i++) {
+        ctx.lineTo(completedPath[i].x, completedPath[i].y);
+      }
+      ctx.stroke();
+    }
 
-            document.getElementById('test-type-tag').textContent = `TMT-${appState.testType}`;
-            document.getElementById('test-type-tag').className = appState.testType === 'A' 
-                ? "px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-400 font-bold text-xs border border-indigo-500/30"
-                : "px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold text-xs border border-emerald-500/30";
-            
-            document.getElementById('next-target-display').textContent = appState.sequence[0];
-            document.getElementById('live-errors').textContent = "0";
-            document.getElementById('live-timer').textContent = "0.0";
+    // Малювання точок
+    points.forEach((p, index) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
 
-            resizeCanvas();
-            generateNodesPositions();
-            drawCanvas();
+      if (index < currentTargetIndex) {
+        ctx.fillStyle = '#e0f2fe';
+        ctx.strokeStyle = '#0284c7';
+      } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#334155';
+      }
 
-            // Start Timer
-            appState.startTime = performance.now();
-            if (appState.timerInterval) clearInterval(appState.timerInterval);
-            appState.timerInterval = setInterval(() => {
-                const elapsed = ((performance.now() - appState.startTime) / 1000).toFixed(1);
-                document.getElementById('live-timer').textContent = elapsed;
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+
+      // Текст
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.label, p.x, p.y);
+    });
+  }
+
+  function handleInput(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    points.forEach((p, index) => {
+      const dist = Math.hypot(p.x - x, p.y - y);
+      if (dist <= p.radius + 10) { // Допуск на тап
+        if (index === currentTargetIndex) {
+          // Правильний вибір
+          if (!startTime) {
+            startTime = performance.now();
+            timerInterval = setInterval(() => {
+              const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+              document.getElementById('timer').innerText = elapsed;
             }, 100);
+          }
+
+          completedPath.push(p);
+          currentTargetIndex++;
+          draw();
+
+          // Фініш
+          if (currentTargetIndex === points.length) {
+            clearInterval(timerInterval);
+            const totalTime = ((performance.now() - startTime) / 1000).toFixed(2);
+            finishPart(totalTime);
+          }
+        } else if (index > currentTargetIndex) {
+          // Помилка
+          errors++;
+          document.getElementById('error-count').innerText = errors;
+          flashError(p);
         }
+      }
+    });
+  }
 
-        // Resize Canvas dynamically
-        function resizeCanvas() {
-            const container = document.getElementById('canvas-container');
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-        }
+  function flashError(p) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#fee2e2';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.fill();
+    ctx.stroke();
+    setTimeout(draw, 250);
+  }
 
-        window.addEventListener('resize', () => {
-            if (!testSec.classList.contains('hidden') && appState.nodes.length > 0) {
-                resizeCanvas();
-                generateNodesPositions();
-                drawCanvas();
-            }
-        });
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleInput(e.clientX, e.clientY);
+  });
 
-        // Generate non-overlapping circle positions with guaranteed minimum distance
-        function generateNodesPositions() {
-            const width = canvas.width;
-            const height = canvas.height;
-            
-            // Dynamic node radius & safety margin depending on canvas dimensions
-            const minDimension = Math.min(width, height);
-            const radius = minDimension < 500 ? 18 : (minDimension < 800 ? 22 : 26);
-            const margin = 28; // Mandatory extra spatial gap between circles
-            const minDistance = (radius * 2) + margin; // Center-to-center strict minimal distance
-            
-            const padding = radius + 20; // Padding from canvas borders
+  function finishPart(timeSpent) {
+    if (currentPart === 'A') {
+      results.timeA = timeSpent;
+      results.errorsA = errors;
+      alert(`Частину A завершено!\nЧас: ${timeSpent} с | Помилки: ${errors}`);
+    } else {
+      results.timeB = timeSpent;
+      results.errorsB = errors;
+      alert(`Частину B завершено!\nЧас: ${timeSpent} с | Помилки: ${errors}`);
+    }
 
-            appState.nodes = [];
+    sendToGoogleSheets();
+    exitTest();
+  }
 
-            appState.sequence.forEach((label, idx) => {
-                let attempts = 0;
-                let x, y, overlap;
+  function sendToGoogleSheets() {
+    if (!GOOGLE_SCRIPT_URL) {
+      console.log("Google Apps Script URL не задано. Дані збережено лише локально в пам'яті.");
+      return;
+    }
 
-                do {
-                    overlap = false;
-                    x = padding + Math.random() * (width - 2 * padding);
-                    y = padding + Math.random() * (height - 2 * padding);
+    let diffBA = '';
+    if(results.timeA && results.timeB) {
+      diffBA = (parseFloat(results.timeB) - parseFloat(results.timeA)).toFixed(2);
+    }
 
-                    // Check overlap against all already generated nodes
-                    for (let node of appState.nodes) {
-                        const dist = Math.hypot(node.x - x, node.y - y);
-                        if (dist < minDistance) {
-                            overlap = true;
-                            break;
-                        }
-                    }
-                    attempts++;
-                } while (overlap && attempts < 3000);
+    const payload = {
+      pib: results.pib,
+      age: results.age,
+      date: results.date,
+      timeA: results.timeA || '',
+      errorsA: results.errorsA !== null ? results.errorsA : '',
+      timeB: results.timeB || '',
+      errorsB: results.errorsB !== null ? results.errorsB : '',
+      diffBA: diffBA
+    };
 
-                appState.nodes.push({
-                    id: idx,
-                    label: label,
-                    x: x,
-                    y: y,
-                    radius: radius
-                });
-            });
-        }
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      alert("Дані успішно відправлені у Google Таблицю!");
+    }).catch(err => {
+      console.error("Помилка відправки:", err);
+      alert("Не вдалося відправити дані в Google Таблицю. Перевірте посилання.");
+    });
+  }
 
-        // Render Canvas Elements
-        function drawCanvas(flashRedNodeId = null) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // 1. Draw persistent connection lines for completed items
-            if (appState.currentIndex > 0) {
-                ctx.beginPath();
-                ctx.strokeStyle = '#6366f1'; // Indigo-500
-                ctx.lineWidth = 3;
-                ctx.setLineDash([]);
-                for (let i = 0; i < appState.currentIndex; i++) {
-                    const node = appState.nodes[i];
-                    if (i === 0) {
-                        ctx.moveTo(node.x, node.y);
-                    } else {
-                        ctx.lineTo(node.x, node.y);
-                    }
-                }
-                ctx.stroke();
-            }
-
-            // 2. Draw Circles and Labels
-            appState.nodes.forEach((node, idx) => {
-                const isCompleted = idx < appState.currentIndex;
-                const isFlashRed = flashRedNodeId === idx;
-
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-
-                if (isCompleted) {
-                    // Completed Node Style
-                    ctx.fillStyle = '#4f46e5'; // Dark Indigo
-                    ctx.strokeStyle = '#818cf8';
-                    ctx.lineWidth = 2;
-                } else if (isFlashRed) {
-                    // Error Flash Style
-                    ctx.fillStyle = '#e11d48'; // Rose-600
-                    ctx.strokeStyle = '#fda4af';
-                    ctx.lineWidth = 3;
-                } else {
-                    // Default Node Style
-                    ctx.fillStyle = '#1e293b'; // Slate-800
-                    ctx.strokeStyle = '#475569'; // Slate-600
-                    ctx.lineWidth = 2;
-                }
-
-                ctx.fill();
-                ctx.stroke();
-
-                // Draw Text Label
-                ctx.fillStyle = isCompleted ? '#ffffff' : (isFlashRed ? '#ffffff' : '#f8fafc');
-                ctx.font = `bold ${node.radius * 0.9}px Inter, sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(node.label, node.x, node.y + 1);
-            });
-        }
-
-        // Handle Clicks/Taps on Canvas
-        function handleCanvasInteraction(e) {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            
-            // Handle touch or mouse event coordinates
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-            const clickX = clientX - rect.left;
-            const clickY = clientY - rect.top;
-
-            const now = performance.now();
-            const timeOffset = ((now - appState.startTime) / 1000).toFixed(3);
-
-            // Find clicked node
-            let clickedIndex = -1;
-            appState.nodes.forEach((node, idx) => {
-                const dist = Math.hypot(node.x - clickX, node.y - clickY);
-                if (dist <= node.radius * 1.3) {
-                    clickedIndex = idx;
-                }
-            });
-
-            if (clickedIndex === -1) return; // Clicked on empty space
-
-            const expectedIndex = appState.currentIndex;
-
-            if (clickedIndex === expectedIndex) {
-                // CORRECT SELECTION
-                appState.userLog.push({
-                    step: expectedIndex + 1,
-                    target: appState.sequence[expectedIndex],
-                    status: 'CORRECT',
-                    timeSec: timeOffset
-                });
-
-                appState.currentIndex++;
-                
-                // Update header tracker
-                if (appState.currentIndex < appState.sequence.length) {
-                    document.getElementById('next-target-display').textContent = appState.sequence[appState.currentIndex];
-                }
-
-                drawCanvas();
-
-                // Check Completion
-                if (appState.currentIndex >= appState.sequence.length) {
-                    finishTest();
-                }
-
-            } else if (clickedIndex > expectedIndex) {
-                // INCORRECT SELECTION (Error)
-                appState.errorsCount++;
-                document.getElementById('live-errors').textContent = appState.errorsCount;
-
-                appState.userLog.push({
-                    step: expectedIndex + 1,
-                    target: appState.sequence[clickedIndex],
-                    status: 'ERROR',
-                    timeSec: timeOffset
-                });
-
-                // Trigger Red Flash visual feedback
-                drawCanvas(clickedIndex);
-                setTimeout(() => {
-                    drawCanvas();
-                }, 300);
-            }
-        }
-
-        canvas.addEventListener('mousedown', handleCanvasInteraction);
-        canvas.addEventListener('touchstart', handleCanvasInteraction);
-
-        // Finish Test and Show Summary
-        function finishTest() {
-            clearInterval(appState.timerInterval);
-            appState.endTime = performance.now();
-
-            const totalTimeSec = ((appState.endTime - appState.startTime) / 1000).toFixed(2);
-
-            // Record Result Object
-            const resultData = {
-                id: Date.now(),
-                subjectId: appState.subjectId,
-                age: appState.age,
-                gender: appState.gender,
-                testType: appState.testType,
-                totalTimeSec: parseFloat(totalTimeSec),
-                errorsCount: appState.errorsCount,
-                dateTime: new Date().toLocaleString('uk-UA'),
-                userLog: appState.userLog
-            };
-
-            appState.lastCompletedResult = resultData;
-            saveResultToStorage(resultData);
-
-            // Calculate ratios if previous counterpart test exists in history
-            const history = getSavedResults();
-            const counterpartType = appState.testType === 'A' ? 'B' : 'A';
-            const counterpartResult = history.find(r => r.subjectId === appState.subjectId && r.testType === counterpartType);
-
-            let timeA = appState.testType === 'A' ? resultData.totalTimeSec : (counterpartResult ? counterpartResult.totalTimeSec : null);
-            let timeB = appState.testType === 'B' ? resultData.totalTimeSec : (counterpartResult ? counterpartResult.totalTimeSec : null);
-
-            document.getElementById('res-time').textContent = totalTimeSec;
-            document.getElementById('res-errors').textContent = appState.errorsCount;
-
-            if (timeA && timeB) {
-                document.getElementById('res-diff').textContent = `${(timeB - timeA).toFixed(2)} с`;
-                document.getElementById('res-ratio').textContent = (timeB / timeA).toFixed(2);
-            } else {
-                document.getElementById('res-diff').textContent = "N/A";
-                document.getElementById('res-ratio').textContent = "N/A";
-            }
-
-            testSec.classList.add('hidden');
-            resultsSec.classList.remove('hidden');
-        }
-
-        function abortTest() {
-            if (confirm('Ви впевнені, що хочете скасувати поточне тестування?')) {
-                clearInterval(appState.timerInterval);
-                testSec.classList.add('hidden');
-                setupSec.classList.remove('hidden');
-            }
-        }
-
-        // LocalStorage Helpers
-        function saveResultToStorage(result) {
-            let history = getSavedResults();
-            history.unshift(result);
-            localStorage.setItem('tmt_results_history', JSON.stringify(history));
-        }
-
-        function getSavedResults() {
-            try {
-                return JSON.parse(localStorage.getItem('tmt_results_history')) || [];
-            } catch (e) {
-                return [];
-            }
-        }
-
-        function showResultsTable() {
-            const history = getSavedResults();
-            const tbody = document.getElementById('history-table-body');
-            tbody.innerHTML = '';
-
-            if (history.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">Історія порожня.</td></tr>`;
-            } else {
-                history.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-700/50 transition";
-                    tr.innerHTML = `
-                        <td class="p-3">${row.dateTime}</td>
-                        <td class="p-3 font-semibold text-white">${row.subjectId}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded text-xs ${row.testType === 'A' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'}">TMT-${row.testType}</span></td>
-                        <td class="p-3 font-mono">${row.totalTimeSec}</td>
-                        <td class="p-3 ${row.errorsCount > 0 ? 'text-rose-400 font-bold' : ''}">${row.errorsCount}</td>
-                        <td class="p-3 text-slate-400">${row.gender || '-'} (${row.age || '-'} р.)</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            setupSec.classList.add('hidden');
-            historySec.classList.remove('hidden');
-        }
-
-        function clearHistory() {
-            if (confirm('Видалити всі збережені записи тестувань з цього браузера?')) {
-                localStorage.removeItem('tmt_results_history');
-                showResultsTable();
-            }
-        }
-
-        // CSV Export Functions (Excel compatible with UTF-8 BOM)
-        function downloadCSV(csvContent, filename) {
-            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function exportSingleCSV() {
-            if (!appState.lastCompletedResult) return;
-            const r = appState.lastCompletedResult;
-
-            let csv = "ID Пацієнта,Вік,Стать,Дата/Час,Тест,Загальний час (сек),Кількість помилок\n";
-            csv += `"${r.subjectId}","${r.age}","${r.gender}","${r.dateTime}","TMT-${r.testType}",${r.totalTimeSec},${r.errorsCount}\n\n`;
-
-            csv += "Крок,Назва елемента,Статус,Час від початку (сек)\n";
-            r.userLog.forEach(log => {
-                csv += `${log.step},"${log.target}",${log.status},${log.timeSec}\n`;
-            });
-
-            downloadCSV(csv, `TMT_${r.testType}_${r.subjectId}_${Date.now()}.csv`);
-        }
-
-        function exportAllCSV() {
-            const history = getSavedResults();
-            if (history.length === 0) {
-                alert('Немає даних для експорту.');
-                return;
-            }
-
-            let csv = "ID Пацієнта,Вік,Стать,Дата/Час,Тест,Загальний час (сек),Кількість помилок\n";
-            history.forEach(r => {
-                csv += `"${r.subjectId}","${r.age}","${r.gender}","${r.dateTime}","TMT-${r.testType}",${r.totalTimeSec},${r.errorsCount}\n`;
-            });
-
-            downloadCSV(csv, `TMT_All_Results_${Date.now()}.csv`);
-        }
-    </script>
+  function exitTest() {
+    clearInterval(timerInterval);
+    document.getElementById('test-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+  }
+</script>
 </body>
 </html>
