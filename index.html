@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trail Making Test (TMT-A & TMT-B)</title>
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --error-color: #ef4444;
+      --success-color: #22c55e;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      display: flex; flex-direction: column; min-height: 100vh;
+    }
+
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    header h1 { font-size: 1.5rem; color: var(--primary-color); }
+
+    main {
+      flex: 1; display: flex; justify-content: center; align-items: center; padding: 1rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 550px; width: 100%;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      border: 1px solid var(--border-color);
+    }
+
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .form-group input {
+      width: 100%; padding: 0.75rem;
+      border: 1px solid var(--border-color); border-radius: 6px;
+      font-size: 1rem; outline: none;
+    }
+    .form-group input:focus { border-color: var(--primary-color); }
+
+    .btn-group { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .btn {
+      flex: 1; padding: 0.85rem; border: none; border-radius: 6px;
+      background: var(--primary-color); color: white;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #64748b; }
+    .btn-secondary:hover { background: #475569; }
+
+    /* Canvas / Screen Test */
+    #test-screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+    .test-header {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; max-width: 900px; margin-bottom: 0.5rem;
+      font-size: 1.1rem; font-weight: 600;
+    }
+    .canvas-container {
+      position: relative; background: white;
+      border: 2px solid var(--border-color); border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    canvas { display: block; touch-action: none; }
+
+    .status-msg { margin-top: 1rem; font-size: 0.95rem; color: var(--text-muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Trail Making Test (TMT)</h1>
+</header>
+
+<main>
+  <!-- Main Form Screen -->
+  <div id="setup-screen" class="card">
+    <h2 style="margin-bottom: 1.5rem; font-size: 1.25rem;">Дані пацієнта / досліджуваного</h2>
+    
+    <div class="form-group">
+      <label for="pib">ПІБ пацієнта</label>
+      <input type="text" id="pib" placeholder="Іванов Іван Іванович">
+    </div>
+
+    <div class="form-group">
+      <label for="age">Вік (років)</label>
+      <input type="number" id="age" placeholder="45" min="1" max="120">
+    </div>
+
+    <div class="form-group">
+      <label for="test-date">Дата проходження</label>
+      <input type="date" id="test-date">
+    </div>
+
+    <div class="form-group" style="margin-top: 1.5rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+      <label for="script-url" style="color: var(--primary-color);">Google Apps Script URL (для збереження)</label>
+      <input type="text" id="script-url" placeholder="https://script.google.com/macros/s/.../exec">
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" onclick="startTest('A')">Старт TMT-A</button>
+      <button class="btn btn-secondary" onclick="startTest('B')">Старт TMT-B</button>
+    </div>
+  </div>
+
+  <!-- Test Canvas Screen -->
+  <div id="test-screen">
+    <div class="test-header">
+      <span id="test-title">Частина A</span>
+      <div>Час: <span id="timer">0.0</span> с | Помилки: <span id="error-count" style="color:var(--error-color);">0</span></div>
+    </div>
+    <div class="canvas-container">
+      <canvas id="tmtCanvas"></canvas>
+    </div>
+    <div class="btn-group" style="max-width: 900px; width: 100%; margin-top: 1rem;">
+      <button class="btn btn-secondary" onclick="exitTest()">Скасувати / В меню</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Вставте вау Web App URL сюди за замовчуванням (або вводьте у формі)
+  let GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9maMt2wQkaa6OTN5lD-0tvHFdLBRnFRXvtAXqExTNUpNTnJxxI4aqOJ9BmJ0KGfn2Pw/exec";
+
+  // Встановлюємо поточну дату
+  document.getElementById('test-date').valueAsDate = new Date();
+
+  // Завантажуємо збережене посилання з LocalStorage, якщо воно є
+  if(localStorage.getItem('tmt_script_url')) {
+    document.getElementById('script-url').value = localStorage.getItem('tmt_script_url');
+  }
+
+  let currentPart = 'A';
+  let points = [];
+  let currentTargetIndex = 0;
+  let startTime = null;
+  let timerInterval = null;
+  let errors = 0;
+  let completedPath = [];
+
+  let results = {
+    pib: '', age: '', date: '',
+    timeA: null, errorsA: null,
+    timeB: null, errorsB: null
+  };
+
+  const canvas = document.getElementById('tmtCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const partASequence = Array.from({length: 25}, (_, i) => (i + 1).toString());
+  const partBSequence = [
+    '1','А','2','Б','3','В','4','Г','5','Д','6','Е','7','Є',
+    '8','Ж','9','З','10','И','11','І','12','Ї','13'
+  ];
+
+  function startTest(part) {
+    const pib = document.getElementById('pib').value.trim();
+    const age = document.getElementById('age').value;
+    const date = document.getElementById('test-date').value;
+    const url = document.getElementById('script-url').value.trim();
+
+    if(!pib || !age) {
+      alert("Будь ласка, заповніть ПІБ та вік.");
+      return;
+    }
+
+    if(url) {
+      GOOGLE_SCRIPT_URL = url;
+      localStorage.setItem('tmt_script_url', url);
+    }
+
+    results.pib = pib;
+    results.age = age;
+    results.date = date;
+
+    currentPart = part;
+    document.getElementById('test-title').innerText = `Частина ${part} (${part === 'A' ? 'Числа 1-25' : 'Числа та Літери 1-А-2-Б...'})`;
+    
+    document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('test-screen').style.display = 'flex';
+
+    initCanvas();
+    generatePoints();
+    resetState();
+  }
+
+  function initCanvas() {
+    const maxW = Math.min(window.innerWidth - 32, 900);
+    const maxH = Math.min(window.innerHeight - 180, 650);
+    canvas.width = maxW;
+    canvas.height = maxH;
+  }
+
+  function generatePoints() {
+    points = [];
+    const sequence = currentPart === 'A' ? partASequence : partBSequence;
+    const radius = 22;
+    const margin = 35;
+    const minDistance = radius * 2 + margin;
+
+    for (let i = 0; i < sequence.length; i++) {
+      let x, y, overlap;
+      let attempts = 0;
+      do {
+        overlap = false;
+        x = radius + margin + Math.random() * (canvas.width - 2 * (radius + margin));
+        y = radius + margin + Math.random() * (canvas.height - 2 * (radius + margin));
+
+        for (let p of points) {
+          const dist = Math.hypot(p.x - x, p.y - y);
+          if (dist < minDistance) {
+            overlap = true;
+            break;
+          }
+        }
+        attempts++;
+      } while (overlap && attempts < 1000);
+
+      points.push({ label: sequence[i], x, y, radius });
+    }
+  }
+
+  function resetState() {
+    currentTargetIndex = 0;
+    errors = 0;
+    completedPath = [];
+    startTime = null;
+    clearInterval(timerInterval);
+    document.getElementById('timer').innerText = '0.0';
+    document.getElementById('error-count').innerText = '0';
+    draw();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Малювання ліній з'єднання
+    if (completedPath.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 3;
+      ctx.moveTo(completedPath[0].x, completedPath[0].y);
+      for (let i = 1; i < completedPath.length; i++) {
+        ctx.lineTo(completedPath[i].x, completedPath[i].y);
+      }
+      ctx.stroke();
+    }
+
+    // Малювання точок
+    points.forEach((p, index) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+
+      if (index < currentTargetIndex) {
+        ctx.fillStyle = '#e0f2fe';
+        ctx.strokeStyle = '#0284c7';
+      } else {
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#334155';
+      }
+
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+
+      // Текст
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 16px system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.label, p.x, p.y);
+    });
+  }
+
+  function handleInput(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    points.forEach((p, index) => {
+      const dist = Math.hypot(p.x - x, p.y - y);
+      if (dist <= p.radius + 10) { // Допуск на тап
+        if (index === currentTargetIndex) {
+          // Правильний вибір
+          if (!startTime) {
+            startTime = performance.now();
+            timerInterval = setInterval(() => {
+              const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+              document.getElementById('timer').innerText = elapsed;
+            }, 100);
+          }
+
+          completedPath.push(p);
+          currentTargetIndex++;
+          draw();
+
+          // Фініш
+          if (currentTargetIndex === points.length) {
+            clearInterval(timerInterval);
+            const totalTime = ((performance.now() - startTime) / 1000).toFixed(2);
+            finishPart(totalTime);
+          }
+        } else if (index > currentTargetIndex) {
+          // Помилка
+          errors++;
+          document.getElementById('error-count').innerText = errors;
+          flashError(p);
+        }
+      }
+    });
+  }
+
+  function flashError(p) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#fee2e2';
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.fill();
+    ctx.stroke();
+    setTimeout(draw, 250);
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    handleInput(e.clientX, e.clientY);
+  });
+
+  function finishPart(timeSpent) {
+    if (currentPart === 'A') {
+      results.timeA = timeSpent;
+      results.errorsA = errors;
+      alert(`Частину A завершено!\nЧас: ${timeSpent} с | Помилки: ${errors}`);
+    } else {
+      results.timeB = timeSpent;
+      results.errorsB = errors;
+      alert(`Частину B завершено!\nЧас: ${timeSpent} с | Помилки: ${errors}`);
+    }
+
+    sendToGoogleSheets();
+    exitTest();
+  }
+
+  function sendToGoogleSheets() {
+    if (!GOOGLE_SCRIPT_URL) {
+      console.log("Google Apps Script URL не задано. Дані збережено лише локально в пам'яті.");
+      return;
+    }
+
+    let diffBA = '';
+    if(results.timeA && results.timeB) {
+      diffBA = (parseFloat(results.timeB) - parseFloat(results.timeA)).toFixed(2);
+    }
+
+    const payload = {
+      pib: results.pib,
+      age: results.age,
+      date: results.date,
+      timeA: results.timeA || '',
+      errorsA: results.errorsA !== null ? results.errorsA : '',
+      timeB: results.timeB || '',
+      errorsB: results.errorsB !== null ? results.errorsB : '',
+      diffBA: diffBA
+    };
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(() => {
+      alert("Дані успішно відправлені у Google Таблицю!");
+    }).catch(err => {
+      console.error("Помилка відправки:", err);
+      alert("Не вдалося відправити дані в Google Таблицю. Перевірте посилання.");
+    });
+  }
+
+  function exitTest() {
+    clearInterval(timerInterval);
+    document.getElementById('test-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+  }
+</script>
+</body>
+</html>
